@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crowdsourced Road Safety</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="logo">🛣️ Road Safety Network</div>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/report">Report Hazard</a></li>
+                <li><a href="/dashboard">Dashboard</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container">
+            <h1>Keep Our Roads Safe</h1>
+            <p>Report hazards, vote on issues, and help your community stay informed about road conditions.</p>
+            <a href="/report" class="btn btn-primary">Report a Hazard</a>
+        </div>
+    </section>
+
+    <section class="features">
+        <div class="container">
+            <h2>How It Works</h2>
+            <div class="feature-grid">
+                <a href="/report" class="feature-card feature-link">
+                    <div class="feature-icon">📍</div>
+                    <h3>Report Location</h3>
+                    <p>Share the exact location of road hazards with GPS coordinates</p>
+                    <button type="button" class="btn btn-small btn-primary" onclick="navigateToReport(event)">Start Reporting →</button>
+                </a>
+                <a href="/report" class="feature-card feature-link">
+                    <div class="feature-icon">📸</div>
+                    <h3>Add Photos</h3>
+                    <p>Attach photos to help others visualize the hazard</p>
+                    <button type="button" class="btn btn-small btn-primary" onclick="navigateToReport(event)">Upload Photo →</button>
+                </a>
+                <a href="/report" class="feature-card feature-link">
+                    <div class="feature-icon">👍</div>
+                    <h3>Community Votes</h3>
+                    <p>Vote on reports to validate and prioritize urgent issues</p>
+                    <button type="button" class="btn btn-small btn-primary" onclick="goToDashboard(event)">View Reports →</button>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <section class="recent-reports">
+        <div class="container">
+            <h2>Recent Reports</h2>
+            <div id="reports-list" class="reports-grid">
+                <div class="loading">Loading reports...</div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Crowdsourced Road Safety. Making roads safer for everyone.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        function navigateToReport(event) {
+            event.preventDefault();
+            window.location.href = '/report';
+        }
+
+        function goToDashboard(event) {
+            event.preventDefault();
+            window.location.href = '/dashboard';
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            loadReports();
+        });
+
+        function loadReports() {
+            fetch('/api/reports')
+                .then(response => response.json())
+                .then(data => {
+                    const list = document.getElementById('reports-list');
+                    list.innerHTML = '';
+                    
+                    if (data.length === 0) {
+                        list.innerHTML = '<p>No reports yet. Be the first to report!</p>';
+                        return;
+                    }
+                    
+                    data.forEach(report => {
+                        const card = document.createElement('div');
+                        card.className = 'report-card';
+                        card.innerHTML = `
+                            <div class="report-header">
+                                <h3>${report.hazard_type}</h3>
+                                <span class="severity ${report.severity}">${report.severity}</span>
+                            </div>
+                            <p class=\"location\">📍 ${report.village ? report.village + ', ' : ''}${report.location}</p>
+                            <p class="description">${report.description}</p>
+                            <p class="time">${new Date(report.timestamp).toLocaleString()}</p>
+                            <div class="report-actions">
+                                <button class="btn-small btn-helpful" onclick="voteReport(${report.id}, 'helpful')">👍 Helpful</button>
+                                <button class="btn-small btn-not-helpful" onclick="voteReport(${report.id}, 'not_helpful')">👎 Not Helpful</button>
+                            </div>
+                        `;
+                        list.appendChild(card);
+                    });
+                })
+                .catch(error => console.error('Error loading reports:', error));
+        }
+
+        function voteReport(reportId, voteType) {
+            fetch(`/api/reports/${reportId}/vote`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({vote_type: voteType})
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert('Vote recorded! Thanks for contributing.');
+                loadReports();
+            })
+            .catch(error => console.error('Error voting:', error));
+        }
+    </script>
+</body>
+</html>

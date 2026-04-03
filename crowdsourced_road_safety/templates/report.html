@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report Hazard - Road Safety</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="logo">🛣️ Road Safety Network</div>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/report">Report Hazard</a></li>
+                <li><a href="/dashboard">Dashboard</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="report-section">
+        <div class="container">
+            <h1>Report a Road Hazard</h1>
+            <p class="subtitle">Help keep our community safe by reporting road hazards</p>
+            
+            <form id="reportForm" class="form-container" onsubmit="submitReport(event)">
+                <div class="form-group">
+                    <label for="village">Village/Area Name *</label>
+                    <input type="text" id="village" name="village" placeholder="Enter village or area name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="location">Location *</label>
+                    <input type="text" id="location" name="location" placeholder="Enter street address or intersection" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="latitude">Latitude *</label>
+                        <input type="number" id="latitude" name="latitude" step="0.0001" placeholder="e.g., 40.7128" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="longitude">Longitude *</label>
+                        <input type="number" id="longitude" name="longitude" step="0.0001" placeholder="e.g., -74.0060" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="hazardType">Type of Hazard *</label>
+                    <select id="hazardType" name="hazardType" required>
+                        <option value="">-- Select Hazard Type --</option>
+                        <option value="Pothole">Pothole</option>
+                        <option value="Accident">Accident</option>
+                        <option value="Debris">Debris on Road</option>
+                        <option value="Flooding">Flooding</option>
+                        <option value="Construction">Construction/Roadwork</option>
+                        <option value="Traffic Congestion">Traffic Congestion</option>
+                        <option value="Broken Signal">Broken Traffic Signal</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="severity">Severity Level *</label>
+                    <select id="severity" name="severity" required>
+                        <option value="">-- Select Severity --</option>
+                        <option value="Low">Low (Minor Issue)</option>
+                        <option value="Medium">Medium (Moderate Issue)</option>
+                        <option value="High">High (Serious Hazard)</option>
+                        <option value="Critical">Critical (Immediate Danger)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description *</label>
+                    <textarea id="description" name="description" rows="5" placeholder="Describe the hazard in detail..." required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="imageUrl">Image URL</label>
+                    <input type="url" id="imageUrl" name="imageUrl" placeholder="https://example.com/image.jpg">
+                </div>
+
+                <div class="button-group">
+                    <button type="submit" class="btn btn-primary">Submit Report</button>
+                    <a href="/" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+
+            <div id="successMessage" class="alert alert-success" style="display: none;">
+                <h3>✓ Report Submitted Successfully!</h3>
+                <p>Thank you for helping keep our roads safe. Your report has been posted and other users can now vote on its importance.</p>
+                <a href="/" class="btn btn-primary">Back to Home</a>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Crowdsourced Road Safety. Making roads safer for everyone.</p>
+        </div>
+    </footer>
+
+    <script>
+        function submitReport(event) {
+            event.preventDefault();
+            console.log('Form submission started');
+
+            const village = document.getElementById('village').value.trim();
+            const location = document.getElementById('location').value.trim();
+            const latitude = document.getElementById('latitude').value;
+            const longitude = document.getElementById('longitude').value;
+            const hazardType = document.getElementById('hazardType').value;
+            const severity = document.getElementById('severity').value;
+            const description = document.getElementById('description').value.trim();
+            const imageUrl = document.getElementById('imageUrl').value.trim();
+
+            // Validation
+            if (!village || !location || !latitude || !longitude || !hazardType || !severity || !description) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            const formData = {
+                village: village,
+                location: location,
+                latitude: parseFloat(latitude),
+                longitude: parseFloat(longitude),
+                hazard_type: hazardType,
+                severity: severity,
+                description: description,
+                image_url: imageUrl || null
+            };
+
+            console.log('Sending data to server:', formData);
+
+            fetch('/api/reports', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => {
+                console.log('Server response status:', response.status);
+                if (!response.ok) {
+                    throw new Error('Server error: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Success response:', data);
+                document.getElementById('reportForm').style.display = 'none';
+                document.getElementById('successMessage').style.display = 'block';
+                window.scrollTo(0, 0);
+            })
+            .catch(error => {
+                console.error('Error details:', error);
+                alert('Error submitting report: ' + error.message);
+            });
+        }
+
+        // Load geolocation on page load
+        window.addEventListener('load', function() {
+            console.log('Page loaded, getting geolocation...');
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        document.getElementById('latitude').value = position.coords.latitude.toFixed(4);
+                        document.getElementById('longitude').value = position.coords.longitude.toFixed(4);
+                        console.log('Geolocation obtained successfully');
+                    },
+                    function(error) {
+                        console.warn('Geolocation error:', error.message);
+                        alert('Please allow access to your location or enter coordinates manually');
+                    }
+                );
+            }
+        });
+    </script>
+</body>
+</html>

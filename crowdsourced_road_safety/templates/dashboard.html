@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Road Safety</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="logo">🛣️ Road Safety Network</div>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/report">Report Hazard</a></li>
+                <li><a href="/dashboard">Dashboard</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="dashboard-section">
+        <div class="container">
+            <h1>Road Safety Dashboard</h1>
+            <p class="subtitle">Real-time statistics and analysis of road hazards in your community</p>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">📋</div>
+                    <div class="stat-content">
+                        <h3>Total Reports</h3>
+                        <p id="totalReports" class="stat-number">0</p>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon">⚠️</div>
+                    <div class="stat-content">
+                        <h3>Critical Issues</h3>
+                        <p id="criticalCount" class="stat-number">0</p>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon">📈</div>
+                    <div class="stat-content">
+                        <h3>This Week</h3>
+                        <p id="weekCount" class="stat-number">0</p>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon">👥</div>
+                    <div class="stat-content">
+                        <h3>Community Members</h3>
+                        <p class="stat-number">1.2K</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <h2>Hazard Types Distribution</h2>
+                    <canvas id="hazardChart"></canvas>
+                </div>
+
+                <div class="chart-container">
+                    <h2>Severity Levels</h2>
+                    <canvas id="severityChart"></canvas>
+                </div>
+            </div>
+
+            <section class="all-reports">
+                <h2>All Active Reports</h2>
+                <div class="filter-controls">
+                    <input type="text" id="filterSearch" placeholder="Search by location or hazard type...">
+                    <select id="filterSeverity">
+                        <option value="">All Severity Levels</option>
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                        <option value="Critical">Critical</option>
+                    </select>
+                </div>
+                <table class="reports-table">
+                    <thead>
+                        <tr>
+                            <th>Village</th>
+                            <th>Location</th>
+                            <th>Hazard Type</th>
+                            <th>Severity</th>
+                            <th>Status</th>
+                            <th>Reported</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportsTableBody">
+                        <tr>
+                            <td colspan="7" style="text-align: center;">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Crowdsourced Road Safety. Making roads safer for everyone.</p>
+        </div>
+    </footer>
+
+    <script>
+        let allReports = [];
+        let hazardChart, severityChart;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStatistics();
+            loadAllReports();
+
+            document.getElementById('filterSearch').addEventListener('input', filterReports);
+            document.getElementById('filterSeverity').addEventListener('change', filterReports);
+        });
+
+        function loadStatistics() {
+            fetch('/api/statistics')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('totalReports').textContent = data.total_reports;
+                    document.getElementById('criticalCount').textContent = data.severity_counts['Critical'] || 0;
+
+                    // Initialize charts
+                    initHazardChart(data.hazard_types);
+                    initSeverityChart(data.severity_counts);
+                })
+                .catch(error => console.error('Error loading statistics:', error));
+        }
+
+        function loadAllReports() {
+            fetch('/api/reports')
+                .then(response => response.json())
+                .then(data => {
+                    allReports = data;
+                    displayReports(data);
+                })
+                .catch(error => console.error('Error loading reports:', error));
+        }
+
+        function displayReports(reports) {
+            const tbody = document.getElementById('reportsTableBody');
+            tbody.innerHTML = '';
+
+            if (reports.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No reports found</td></tr>';
+                return;
+            }
+
+            reports.forEach(report => {
+                const row = document.createElement('tr');
+                const date = new Date(report.timestamp).toLocaleDateString();
+                row.innerHTML = `
+                    <td>${report.village || 'N/A'}</td>
+                    <td>${report.location}</td>
+                    <td>${report.hazard_type}</td>
+                    <td><span class="severity-badge ${report.severity}">${report.severity}</span></td>
+                    <td>${report.status}</td>
+                    <td>${date}</td>
+                    <td>
+                        <button class="btn-small" onclick="viewReport(${report.id})">View</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function filterReports() {
+            const searchTerm = document.getElementById('filterSearch').value.toLowerCase();
+            const severityFilter = document.getElementById('filterSeverity').value;
+
+            const filtered = allReports.filter(report => {
+                const matchesSearch = report.location.toLowerCase().includes(searchTerm) || 
+                                     report.hazard_type.toLowerCase().includes(searchTerm);
+                const matchesSeverity = !severityFilter || report.severity === severityFilter;
+                return matchesSearch && matchesSeverity;
+            });
+
+            displayReports(filtered);
+        }
+
+        function viewReport(reportId) {
+            // Could open a modal or navigate to detail page
+            alert(`Viewing report #${reportId}`);
+        }
+
+        function initHazardChart(hazardData) {
+            const ctx = document.getElementById('hazardChart').getContext('2d');
+            const labels = Object.keys(hazardData);
+            const data = Object.values(hazardData);
+
+            if (hazardChart) {
+                hazardChart.destroy();
+            }
+
+            hazardChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: [
+                            '#FF6384',
+                            '#36A2EB',
+                            '#FFCE56',
+                            '#4BC0C0',
+                            '#9966FF',
+                            '#FF9F40'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        function initSeverityChart(severityData) {
+            const ctx = document.getElementById('severityChart').getContext('2d');
+            const labels = ['Low', 'Medium', 'High', 'Critical'];
+            const data = labels.map(label => severityData[label] || 0);
+
+            if (severityChart) {
+                severityChart.destroy();
+            }
+
+            severityChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Number of Reports',
+                        data: data,
+                        backgroundColor: [
+                            '#4BC0C0',
+                            '#FFCE56',
+                            '#FF9F40',
+                            '#FF6384'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
